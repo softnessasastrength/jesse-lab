@@ -24,7 +24,7 @@ def atomic_write(path,text):
     tmp=path.with_name(path.name+'.tmp'); tmp.write_text(text,encoding='utf-8'); os.replace(tmp,path); os.chmod(path,0o600)
 
 def main():
-    p=argparse.ArgumentParser(); p.add_argument('--jesse',default='gpt-oss:20b');p.add_argument('--judge',default='gpt-oss:20b');p.add_argument('--cases',default=str(ROOT/'cases.jsonl'));p.add_argument('--out',required=True)
+    p=argparse.ArgumentParser(); p.add_argument('--jesse',default='gpt-oss:latest');p.add_argument('--judge',default='gpt-oss:latest');p.add_argument('--cases',default=str(ROOT/'cases.jsonl'));p.add_argument('--out',required=True)
     p.add_argument('--temperature',type=float,default=0.0);p.add_argument('--seed',type=int,default=0);p.add_argument('--num-ctx',type=int,default=2048);p.add_argument('--revision',default='',help='Free-text provenance note: package/model revisions, environment')
     a=p.parse_args()
     sampling={'temperature':a.temperature,'seed':a.seed,'num_ctx':a.num_ctx}

@@ -7,7 +7,7 @@ Local experimental baseline and one-step LoRA smoke test for an Apple Silicon Ma
 Install and start Ollama, and pull the desired model. From this directory:
 
 ```sh
-python3 bench.py --jesse gpt-oss:20b --judge gpt-oss:20b --out runs/baseline
+python3 bench.py --jesse gpt-oss:latest --judge gpt-oss:latest --out runs/baseline
 ```
 
 Generation and evaluation run in separate phases and request model unload after each request. This is slower but limits residency; Ollama can have other models loaded—check `ollama ps`. The judge is advisory, can miss safety failures, and using the same model for both roles reduces independence. Edit prompts/jesse.txt and cases.jsonl to tailor the baseline. The bundled prompt is a concise local approximation, not a validated reproduction of the plugin. Inspect prompts/jesse-source.md for earlier source instructions. Serious cases receive no jokes. Review report.md and results.json. Raw inputs and responses are stored locally; use encrypted storage for sensitive data.
@@ -29,4 +29,4 @@ For SSH, keep the Mac awake using a temporary `caffeinate -i` session, and use t
 
 ## Limits
 
-This is a runnable prototype, not a trained model or proven safety gate. Ollama baseline and MLX adapter paths are separate; adapter inference and automatic comparison are not yet implemented. Training, GPU usage, and speed have not been tested on your machine. No data is uploaded by the bench; pip and model downloads require network access.
+This is a runnable prototype, not a trained model or proven safety gate. Ollama baseline and MLX adapter paths are separate; adapter inference and automatic comparison are implemented, but not yet validated on the target Mac. Training, GPU usage, and speed have not been tested on your machine. No data is uploaded by the bench; pip and model downloads require network access.
