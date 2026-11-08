@@ -1,0 +1,6 @@
+.venv/
+runs/
+private/
+__pycache__/
+installed-versions.txt
+*.safetensors
