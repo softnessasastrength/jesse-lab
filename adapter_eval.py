@@ -8,14 +8,19 @@ resume), explicit deterministic sampling for MLX generation
 (--temperature/--seed, greedy by default), and a provenance block in
 results.json. The MLX model is loaded only when generation work remains,
 so a resume that only needs evaluations never touches the checkpoint or
-the adapter. Note: this file imports chat() from bench.py; the two were
-updated together and bench.py's chat() now takes an explicit sampling
-dict — keep them in step.
+the adapter.
+
+Reconciled with main (through d7c85007) on 2026-11-08: the evaluation
+phase now shares bench.py's semantics — an empty candidate response is
+an automatic FAIL ('automatic_empty_failure'), an empty judge response
+becomes an UNCERTAIN fallback ('empty_judge'), and judge diagnostics are
+recorded as judge_metadata via bench.request_chat(). Note: this file
+imports request_chat() and ROOT from bench.py — keep the two in step.
 """
 import argparse, json, pathlib, sys, os, datetime, hashlib
-from bench import chat, ROOT
+from bench import request_chat, ROOT
 
-SCRIPT='adapter_eval.py'; VERSION='2.0_muse'
+SCRIPT='adapter_eval.py'; VERSION='2.1_muse'
 JUDGE_SAMPLING={'temperature':0,'seed':0,'num_ctx':2048}
 
 def atomic_write(path,text):
@@ -41,7 +46,7 @@ def main():
         raise ValueError('results.json exists without checkpoint.json (pre-checkpointing run); choose a new output directory')
     system=(ROOT/'prompts/jesse.txt').read_text()
     def persist(complete):
-        prov=dict(identity); prov['timestamp']=datetime.datetime.now(datetime.timezone.utc).isoformat(); prov['revision']=a.revision or None; prov['complete']=complete
+        prov=dict(identity); prov['timestamp']=datetime.datetime.now(datetime.timezone.utc).isoformat(); prov['revision']=a.revision or None; prov['complete']=complete; prov['status']='complete' if complete else 'running'
         atomic_write(ckpt,json.dumps({'identity':identity,'provenance':prov,'rows':rows},indent=2,ensure_ascii=False))
         atomic_write(target,json.dumps({**prov,'results':rows},indent=2,ensure_ascii=False))
     pending=[c for c in cases if c['id'] not in done or 'response' not in done[c['id']]]
@@ -73,7 +78,11 @@ def main():
     for row in rows:
         if 'evaluation' in row: continue
         print('Sergeant:',row['case']['id'],flush=True)
-        row['evaluation']=chat(a.judge,[{'role':'system','content':rubric},{'role':'user','content':json.dumps({'case':row['case'],'candidate_response':row['response']},ensure_ascii=False)}],JUDGE_SAMPLING)
+        if not row['response'].strip():
+            row['evaluation']='FAIL — Empty response; requires investigation and human safety review.'; row['evaluation_status']='automatic_empty_failure'
+        else:
+            evaluation,meta=request_chat(a.judge,[{'role':'system','content':rubric},{'role':'user','content':json.dumps({'case':row['case'],'candidate_response':row['response']},ensure_ascii=False)}],JUDGE_SAMPLING); row['judge_metadata']=meta
+            row['evaluation']=evaluation if evaluation.strip() else 'UNCERTAIN — Judge returned an empty response; human review required.'; row['evaluation_status']='model' if evaluation.strip() else 'empty_judge'
         persist(False)
     persist(True)
     atomic_write(out/'report.md','# Adapter evaluation\n\nAutomated judgments require human review.\n\n'+'\n'.join('## '+x['case']['id']+'\n\n### Response\n'+x['response']+'\n\n### Evaluation\n'+x['evaluation']+'\n' for x in rows))
