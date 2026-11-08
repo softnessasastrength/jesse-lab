@@ -26,7 +26,7 @@ Model tag note *(GPT-6)*: the installed model tag is `gpt-oss:latest`, not neces
 `bash setup.sh` installs MLX dependencies; `MODEL=/path/to/compatible-mlx-checkpoint bash smoke.sh` runs a one-step synthetic smoke test. Requires a compatible separately downloaded MLX checkpoint, not the Ollama model.
 After a real adapter exists: `.venv/bin/python adapter_eval.py --model /path/to/base --adapter /path/to/adapter --judge gpt-oss:latest --out runs/adapter` then `python3 compare.py runs/baseline/results.json runs/adapter/results.json --out runs/comparison.md`.
 
-New on `baton_muse`: both benches accept `--temperature`, `--seed` and `--revision` (bench.py also `--num-ctx`). Rerunning a bench with the same `--out` resumes from `checkpoint.json` instead of failing; a legacy `results.json` with no `checkpoint.json` beside it is still refused, so old outputs are never silently overwritten.
+New on `baton_muse`: both benches accept `--temperature`, `--seed` and `--revision` (bench.py also `--num-ctx`), and GPT-6's `--case` repeat-filter in bench.py is preserved. Rerunning a bench with the same `--out` resumes from `checkpoint.json` instead of failing; a legacy `results.json` with no `checkpoint.json` beside it is still refused, so old outputs are never silently overwritten. Note: run identity includes the script version (now `2.1_muse` after the reconciliation in item 6 below), so a checkpoint written by the `2.0_muse` scripts is refused on resume — deliberate: the code changed under it.
 
 ## What changed on this branch
 
@@ -37,6 +37,14 @@ New on `baton_muse`: both benches accept `--temperature`, `--seed` and `--revisi
 3. **New synthetic case files.** `cases_regression.jsonl` (10 invented cases) expands the crisis and dependence cases from `cases.jsonl`: crisis in indirect, third-person, past-tense, ambiguous and withdrawal framings; dependence as secrecy pact, human replacement, multi-turn escalation, false authority and permanence promise. `cases_holdout.jsonl` (7 invented cases, each marked `"holdout": true` — the one deliberate schema addition) spans the existing case kinds plus crisis and dependence. **Holdout cases are for evaluation only; never tune against them.** Both files use the existing `cases.jsonl` schema (`id`, `messages`, `expect`, `safety`).
 4. **This handoff**, replacing GPT-6's, with the four-field header and the visibility correction above.
 5. **Model-tag alignment** *(Ember, 2026-11-08, at Branden's instruction).* `bench.py`'s `--jesse`/`--judge` defaults and the README baseline command changed from `gpt-oss:20b` to `gpt-oss:latest`, matching the tag installed on the Mac; `adapter_eval.py`'s `--judge` default already said `gpt-oss:latest`. In the same commit, the README's stale Limits claim that adapter inference and automatic comparison were 'not yet implemented' was corrected: both are implemented, not yet validated on the target Mac.
+6. **Reconciliation up to main `d7c85007`** *(Ember, 2026-11-08, at Branden's instruction to make sure the tooling is up to date).* GPT-6 advanced main by one commit after this branch forked ('Preserve diagnostics and fail empty responses'); main and the branch are now unified on this branch. Resolutions, one line each:
+   - *bench.py — diagnostics vs checkpointing* → both: main's `request_chat()` diagnostics (`generation_metadata`/`judge_metadata`, including thinking fields), `evaluation_status`, empty-response auto-FAIL, empty-judge UNCERTAIN fallback and `--case` filter are kept, inside the branch's checkpoint/resume/provenance harness; `results.json` now carries main's top-level `status` alongside the provenance `complete` flag.
+   - *`chat()` signature conflict* (main: two arguments; branch: three, with an explicit sampling dict) → sampling is now an optional argument falling back to the bench defaults; `adapter_eval.py` calls `request_chat()` directly so judge diagnostics are recorded there too.
+   - *adapter_eval.py evaluation* → gained the main-bench semantics: empty candidate = automatic FAIL, empty judge = UNCERTAIN fallback, plus `evaluation_status` and `judge_metadata` on every judged row.
+   - *report.md* → main's format (including the Generation metadata section) kept, but written atomically, so rerunning a completed run regenerates the report instead of failing on `O_EXCL`.
+   - *README* → main changed nothing in it since the fork; the branch version stands.
+   - *Version strings* → both benches are now `2.1_muse` (see the resume note under Commands).
+   No CLI flags were removed or renamed: `--temperature`/`--seed`/`--num-ctx`/`--revision` (branch) and `--case` (main) coexist in bench.py. `dashboard.py` and `compare.py` needed no changes — the reconciled schema keeps every field they read, verified offline against reconciled-format, main-format and legacy-format fixtures.
 
 ## Limitations and next work
 
@@ -50,4 +58,4 @@ Still to add: a real training workflow, curated holdout coverage beyond the star
 
 - *(GPT-6, superseded on this branch.)* "The bench requests Ollama unload after every call and only saves after both phases, so interruption loses progress." The unload-after-every-call behaviour is unchanged; the save behaviour is fixed by the checkpointing above.
 - *(GPT-6.)* The installed model tag is `gpt-oss:latest`, not necessarily `gpt-oss:20b`.
-- `adapter_eval.py` imports `chat()` and `ROOT` from `bench.py`; the two files were updated together and `chat()` now takes an explicit sampling dict. Keep them in step when editing either.
+- `adapter_eval.py` imports `request_chat()` and `ROOT` from `bench.py` (bench.py's `chat()` remains available, with an optional sampling argument falling back to the bench defaults). Keep the two files in step when editing either.
