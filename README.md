@@ -12,6 +12,16 @@ python3 bench.py --jesse gpt-oss:latest --judge gpt-oss:latest --out runs/baseli
 
 Generation and evaluation run in separate phases and request model unload after each request. This is slower but limits residency; Ollama can have other models loaded—check `ollama ps`. The judge is advisory, can miss safety failures, and using the same model for both roles reduces independence. Edit prompts/jesse.txt and cases.jsonl to tailor the baseline. The bundled prompt is a concise local approximation, not a validated reproduction of the plugin. Inspect prompts/jesse-source.md for earlier source instructions. Serious cases receive no jokes. Review report.md and results.json. Raw inputs and responses are stored locally; use encrypted storage for sensitive data.
 
+## Dashboard
+
+Watch a run live from another terminal:
+
+```sh
+python3 dashboard.py runs/baseline
+```
+
+The dashboard is read-only. It shows the run's script, runtime, model, and judge from its provenance; generation and evaluation progress; PASS / FAIL / UNCERTAIN tallies as evaluations land, with failed safety cases named; the most recent case activity; and a per-case status grid. It tolerates files caught mid-rewrite and keeps the last good frame instead of crashing. Point it at a directory of runs and add `--all` for a one-line summary per run, or `--once` to print a single frame and exit. Runs written before checkpointing carry no provenance and are labelled PARTIAL-LEGACY. Tallies are the judge's, not a verdict; human review is still required.
+
 ## Training smoke test
 
 Install Xcode command line tools and Python 3, then `bash setup.sh`. This downloads packages and records resolved versions but is not a lockfile. Obtain a compatible MLX checkpoint separately; Ollama's model is not automatically an MLX checkpoint. Ensure enough SSD space and stop Ollama models first. Then:
